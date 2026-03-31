@@ -41,7 +41,7 @@ uv run python -m purser.cli list
 Available workflows:
 
 - `purser-add-spec`: project manager prompt for creating a detailed spec in `specs/`
-- `purser-plan`: project manager prompt for turning specs into Beads with dependencies
+- `purser-plan`: project manager prompt for turning director-approved specs into Beads with dependencies
 - `purser-build`: builder prompt for exactly one actionable bead
 - `purser-build-all`: builder prompt for a sequential Ralph loop over all actionable beads
 
@@ -81,3 +81,12 @@ The generated prompts assume Steve Yegge's Beads CLI is available in the repo en
 - `bd close`
 
 The planning prompt explicitly requires atomic beads with explicit dependencies so the builder can safely work one bead at a time.
+
+## Director Approval Gates
+
+The intended lifecycle is strict:
+
+1. Run `purser-add-spec` to create or refine a spec file only.
+2. Stop for director review and manual edits.
+3. Run `purser-plan` only after the director explicitly approves the spec for planning.
+4. Run builder workflows only after planning has produced atomic beads.

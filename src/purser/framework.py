@@ -101,10 +101,11 @@ Available workflows:
 {command_list}
 
 Recommended lifecycle:
-1. Run `/{'purser-add-spec'}` with the director to create or refine a spec in `specs/`.
-2. Run `/{'purser-plan'}` to decompose the approved spec into Beads.
-3. Run `/{'purser-build'}` for one bead at a time.
-4. Run `/{'purser-build-all'}` when you want a single builder agent to keep
+1. Run `/{'purser-add-spec'}` with the director to create or refine a spec in `specs/`, then stop.
+2. The director manually reviews and may edit the spec.
+3. Run `/{'purser-plan'}` only after the director explicitly approves the spec for planning.
+4. Run `/{'purser-build'}` for one bead at a time.
+5. Run `/{'purser-build-all'}` when you want a single builder agent to keep
    looping until nothing actionable remains.
 
 Verification backpressure:
