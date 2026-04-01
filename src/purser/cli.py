@@ -73,13 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_init(target: str, force: bool) -> int:
-    written = scaffold_repository(Path(target).resolve(), force=force)
+    target_path = Path(target).resolve()
+    written = scaffold_repository(target_path, force=force)
     if written:
         for path in written:
             print(path)
     else:
         print("No files written.")
-    return 0
+    print(f"Running `bd init` in {target_path}")
+    completed = subprocess.run(["bd", "init"], check=False, cwd=target_path)
+    return completed.returncode
 
 
 def run_prompt(name: str, agent: str) -> int:

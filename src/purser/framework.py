@@ -122,6 +122,8 @@ Verification backpressure:
 
 Generated outputs:
 - `purser init` creates repo-local prompt artifacts and scaffolding files.
+- `purser init` also runs `bd init` in the target repo so Beads-backed
+  planning and execution are available immediately.
 - This repository keeps the source templates in `src/purser/` and does not
   check the generated prompt artifacts or fresh scaffolding outputs into the
   release package.

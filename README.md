@@ -19,7 +19,10 @@ uv sync --group dev
 uv run purser init
 ```
 
-That scaffolds these repo-local files:
+That bootstraps the repo for Purser and Beads. `purser init` writes the Purser
+scaffolding files and then runs `bd init` in the same repository.
+
+Purser scaffolding includes these repo-local files:
 
 - `.purser/commands/*.md`
 - `.purser/codex/*.md`
@@ -28,7 +31,9 @@ That scaffolds these repo-local files:
 - `specs/.gitkeep`
 - `.purser/README.md`
 
-Those are generated outputs of `purser init`. This repository keeps the source
+Those file artifacts are generated outputs of `purser init`. The command also
+initializes the repo's Beads state, including Beads config, hooks, and related
+database-backed setup managed by `bd init`. This repository keeps the source
 templates in `src/purser/` and does not check the generated prompt artifacts or
 fresh scaffolding outputs into the release package.
 
@@ -86,7 +91,9 @@ That runs:
 
 ## Beads workflow
 
-The generated prompts assume Steve Yegge's Beads CLI is available in the repo environment and that agents can use:
+`purser init` now assumes Steve Yegge's Beads CLI is available and uses it to
+bootstrap the repository via `bd init`. The generated prompts then rely on
+Beads being available in the repo environment so agents can use:
 
 - `bd create`
 - `bd update`
