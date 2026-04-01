@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "purser_3_skills",
+  "project_id": "a7d40315-38b6-4f27-8b41-f191be8ba261"
+}
