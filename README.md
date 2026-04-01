@@ -28,6 +28,10 @@ That scaffolds these repo-local files:
 - `specs/.gitkeep`
 - `.purser/README.md`
 
+Those are generated outputs of `purser init`. This repository keeps the source
+templates in `src/purser/` and does not check the generated prompt artifacts or
+fresh scaffolding outputs into the release package.
+
 ## Commands
 
 ```bash
@@ -54,6 +58,16 @@ uv run purser prompt purser-add-spec --agent codex
 ```
 
 That prints the Codex-ready version of the prompt so it can be pasted into the active session.
+
+All three agent renderers are built from the same source template body in
+`src/purser/templates.py`, with only a small agent-specific usage note added by
+the renderer.
+
+## VS Code Task
+
+This repo includes a VS Code task for local initialization:
+
+- `Pulser - Initialize`: runs `uv run purser init`
 
 ## Verification
 

@@ -18,32 +18,38 @@ def render_canonical(template: PromptTemplate) -> str:
     )
 
 
-def render_claude(template: PromptTemplate) -> str:
+def render_agent_prompt(template: PromptTemplate, usage: str) -> str:
     return (
-        f"# /{template.name}\n\n"
-        "Use this Claude slash command to run the prompt below.\n\n"
+        f"# {template.title}\n\n"
+        f"Command alias: `/{template.name}`\n\n"
+        f"{usage}\n\n"
         f"{template.body.strip()}\n"
+    )
+
+
+def render_claude(template: PromptTemplate) -> str:
+    return render_agent_prompt(
+        template,
+        "Use this prompt as the body of the Claude slash command in "
+        f"`{CLAUDE_DIR / f'{template.name}.md'}`.",
     )
 
 
 def render_copilot(template: PromptTemplate) -> str:
-    return (
-        f"# {template.title}\n\n"
-        f"Command alias: `/{template.name}`\n\n"
+    return render_agent_prompt(
+        template,
         "Use this prompt file in VS Code GitHub Copilot Chat. The filename "
         "preserves the same alias as the Claude slash command even though "
-        "Copilot uses prompt files rather than native slash commands.\n\n"
-        f"{template.body.strip()}\n"
+        "Copilot uses prompt files rather than native slash commands.",
     )
 
 
 def render_codex(template: PromptTemplate) -> str:
-    return (
-        f"# {template.title}\n\n"
-        "Codex does not provide repo-local slash commands. Use `purser prompt "
-        f"{template.name} --agent codex` to print this prompt, then paste or "
-        "adapt it in your Codex session.\n\n"
-        f"{template.body.strip()}\n"
+    return render_agent_prompt(
+        template,
+        "Codex does not provide repo-local slash commands. Run `uv run purser "
+        f"prompt {template.name} --agent codex` to print this prompt, then "
+        "paste or adapt it in your Codex session.",
     )
 
 
@@ -113,6 +119,12 @@ Verification backpressure:
 - For Python work, expect `uv run --group dev ruff check`,
   `uv run --group dev ty check`, and `uv run --group dev pytest`
   before a bead is closed.
+
+Generated outputs:
+- `purser init` creates repo-local prompt artifacts and scaffolding files.
+- This repository keeps the source templates in `src/purser/` and does not
+  check the generated prompt artifacts or fresh scaffolding outputs into the
+  release package.
 
 Canonical source of truth:
 - Edit `.purser/commands/` if you want to customize the prompts for this repo.
