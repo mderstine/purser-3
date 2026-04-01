@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
-from purser.cli import build_parser, run_init, run_prompt
+from purser.cli import build_parser, run_prompt
 from purser.framework import (
     render_claude,
     render_codex,
@@ -60,81 +59,6 @@ def test_scaffold_repository_writes_agent_files(tmp_path: Path) -> None:
         assert path.exists()
 
 
-def test_run_init_scaffolds_then_runs_bd_init(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
-    events: list[tuple[str, Path | list[str]]] = []
-    written_paths = [tmp_path / ".purser" / "README.md"]
-
-    def fake_scaffold(target: Path, force: bool) -> list[Path]:
-        events.append(("scaffold", target))
-        assert force is True
-        return written_paths
-
-    def fake_run(command: list[str], check: bool, cwd: Path) -> subprocess.CompletedProcess[str]:
-        events.append(("run", command))
-        assert check is False
-        assert cwd == tmp_path.resolve()
-        return subprocess.CompletedProcess(command, 0)
-
-    monkeypatch.setattr("purser.cli.scaffold_repository", fake_scaffold)
-    monkeypatch.setattr("purser.cli.subprocess.run", fake_run)
-
-    exit_code = run_init(str(tmp_path), force=True)
-    captured = capsys.readouterr()
-
-    assert exit_code == 0
-    assert events == [
-        ("scaffold", tmp_path.resolve()),
-        ("run", ["bd", "init"]),
-    ]
-    assert str(written_paths[0]) in captured.out
-    assert f"Running `bd init` in {tmp_path.resolve()}" in captured.out
-
-
-def test_run_init_uses_current_directory_for_default_target(
-    monkeypatch, tmp_path: Path
-) -> None:
-    expected_target = tmp_path.resolve()
-
-    def fake_scaffold(target: Path, force: bool) -> list[Path]:
-        assert target == expected_target
-        assert force is False
-        return []
-
-    def fake_run(command: list[str], check: bool, cwd: Path) -> subprocess.CompletedProcess[str]:
-        assert command == ["bd", "init"]
-        assert check is False
-        assert cwd == expected_target
-        return subprocess.CompletedProcess(command, 0)
-
-    monkeypatch.setattr("purser.cli.scaffold_repository", fake_scaffold)
-    monkeypatch.setattr("purser.cli.subprocess.run", fake_run)
-    monkeypatch.chdir(tmp_path)
-
-    assert run_init(".", force=False) == 0
-
-
-def test_run_init_propagates_bd_init_failure(
-    monkeypatch, tmp_path: Path, capsys
-) -> None:
-    def fake_scaffold(target: Path, force: bool) -> list[Path]:
-        return []
-
-    def fake_run(command: list[str], check: bool, cwd: Path) -> subprocess.CompletedProcess[str]:
-        return subprocess.CompletedProcess(command, 17)
-
-    monkeypatch.setattr("purser.cli.scaffold_repository", fake_scaffold)
-    monkeypatch.setattr("purser.cli.subprocess.run", fake_run)
-
-    exit_code = run_init(str(tmp_path), force=False)
-    captured = capsys.readouterr()
-
-    assert exit_code == 17
-    assert "No files written." in captured.out
-    assert f"Running `bd init` in {tmp_path.resolve()}" in captured.out
-
-
 def test_agent_renderers_share_prompt_body() -> None:
     template = TEMPLATES["purser-plan"]
 
@@ -157,4 +81,3 @@ def test_repository_readme_mentions_director_review_gate() -> None:
     assert "The director manually reviews and may edit the spec." in readme
     assert "only after the director explicitly approves the spec for planning" in readme
     assert "generated prompt artifacts" in readme
-    assert "also runs `bd init`" in readme
