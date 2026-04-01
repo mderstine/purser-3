@@ -13,6 +13,13 @@ from .framework import (
     render_copilot,
     scaffold_repository,
 )
+from .github_sync import (
+    default_config_path,
+    default_config_template,
+    default_state_path,
+    format_sync_outcome,
+    run_sync,
+)
 from .templates import TEMPLATES, PromptTemplate
 
 Renderer = Callable[[PromptTemplate], str]
@@ -69,6 +76,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Paths to verify. Defaults to `src tests`.",
     )
 
+    sync_parser = subparsers.add_parser(
+        "sync-github",
+        help="Import tagged GitHub issues and project items into Beads.",
+    )
+    sync_parser.add_argument(
+        "--config",
+        default=default_config_path(),
+        help="Path to the GitHub sync config JSON file.",
+    )
+    sync_parser.add_argument(
+        "--state",
+        default=default_state_path(),
+        help="Path to the GitHub sync state JSON file.",
+    )
+    sync_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the sync result without mutating Beads or state.",
+    )
+    sync_parser.add_argument(
+        "--print-config-template",
+        action="store_true",
+        help="Print a starter config template and exit.",
+    )
+
     return parser
 
 
@@ -114,6 +146,22 @@ def run_check(paths: list[str]) -> int:
     return 0
 
 
+def run_sync_github(
+    config_path: str,
+    state_path: str,
+    *,
+    dry_run: bool,
+    print_config_template_only: bool,
+) -> int:
+    if print_config_template_only:
+        print(default_config_template(), end="")
+        return 0
+
+    outcome = run_sync(Path(config_path), Path(state_path), dry_run=dry_run)
+    print(format_sync_outcome(outcome))
+    return 0
+
+
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
@@ -126,6 +174,13 @@ def main() -> int:
         return run_list()
     if args.command == "check":
         return run_check(args.paths)
+    if args.command == "sync-github":
+        return run_sync_github(
+            args.config,
+            args.state,
+            dry_run=args.dry_run,
+            print_config_template_only=args.print_config_template,
+        )
 
     parser.error(f"unsupported command: {args.command}")
     return 2

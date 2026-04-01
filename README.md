@@ -42,6 +42,7 @@ uv run purser list
 uv run purser prompt purser-add-spec --agent codex
 uv run purser init --force
 uv run purser check
+uv run purser sync-github --dry-run
 uv run python -m purser.cli list
 ```
 
@@ -51,6 +52,10 @@ Available workflows:
 - `purser-plan`: project manager prompt for turning director-approved specs into Beads with dependencies
 - `purser-build`: builder prompt for exactly one actionable bead
 - `purser-build-all`: builder prompt for a sequential Ralph loop over all actionable beads
+
+Operational commands:
+
+- `sync-github`: intake eligible GitHub repo issues and GitHub Project items into local Beads
 
 ## Cross-agent behavior
 
@@ -116,6 +121,31 @@ The generated prompts assume Steve Yegge's Beads CLI is available in the repo en
 - `bd close`
 
 The planning prompt explicitly requires atomic beads with explicit dependencies so the builder can safely work one bead at a time.
+
+## GitHub sync
+
+Purser includes a first-pass GitHub intake command for repositories that want to
+pull tagged GitHub work into local Beads:
+
+```bash
+uv run purser sync-github --print-config-template > .purser/github-sync.json
+uv run purser sync-github --config .purser/github-sync.json --dry-run
+uv run purser sync-github --config .purser/github-sync.json
+```
+
+V1 contract:
+
+- Repository issue sources use explicit label selectors.
+- GitHub Project sources use issue-backed project items only.
+- Project intake filters by a named status field plus allowed status values.
+- Project sources can also require labels on the underlying GitHub issue.
+- Re-import is idempotent through `.purser/github-sync-state.json`.
+- Dependency-like relationships are translated into Beads dependencies when both
+  sides exist locally.
+- Parent-child relationships are recorded explicitly in sync state for operator
+  visibility rather than being forced into Beads dependency edges.
+
+See `docs/github-sync.md` for the operator workflow and the JSON config format.
 
 ## Director Approval Gates
 
