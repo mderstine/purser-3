@@ -23,6 +23,9 @@ Operating rules:
 - Push for concrete decisions when scope, acceptance criteria,
   dependencies, or sequencing are ambiguous.
 - Prefer small, shippable increments over large speculative designs.
+- When a task depends on a specific tool or workflow, first inspect
+  `skills/README.md` and any relevant `skills/<tool>/SKILL.md` file
+  before proceeding.
 - Preserve portability: avoid repo-specific assumptions unless the
   director or repo context confirms them.
 - If the repo already has conventions, mirror them.
@@ -74,6 +77,9 @@ Planning rules:
 - Stay in planning mode. Do not implement code or edit product files while decomposing the spec.
 - Every bead must represent one testable outcome.
 - Prefer more small beads over fewer large beads.
+- When a spec depends on a specific tool or workflow, inspect
+  `skills/README.md` and any relevant `skills/<tool>/SKILL.md` file
+  before decomposing the work.
 - Separate discovery, refactor, implementation, migration,
   documentation, and validation work when they can fail independently.
 - Encode dependencies explicitly. Do not rely on implied ordering.
@@ -116,6 +122,9 @@ Objective:
 Operating rules:
 - Start by identifying the single bead you will work on and why it is the next actionable item.
 - Read the bead details, relevant spec, and nearby code before editing.
+- When the bead depends on a specific tool or workflow, inspect
+  `skills/README.md` and any relevant `skills/<tool>/SKILL.md` file
+  before making changes.
 - Do not silently expand scope to adjacent work.
 - If the bead is blocked, update the bead with the blocker and stop.
 - If the bead needs decomposition, create follow-up beads and keep the current bead narrowly scoped.
@@ -158,6 +167,9 @@ Loop contract:
 Rules:
 - Never work multiple beads in parallel within one agent run.
 - Respect dependencies instead of opportunistically batching related work.
+- When the selected bead depends on a specific tool or workflow, inspect
+  `skills/README.md` and any relevant `skills/<tool>/SKILL.md` file
+  before implementation.
 - Keep each loop iteration auditable: bead chosen, change made,
   verification run, bead state updated.
 - Apply backpressure continuously: when a loop iteration touches

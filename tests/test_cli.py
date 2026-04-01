@@ -40,6 +40,7 @@ def test_run_prompt_renders_plan_approval_gate(capsys) -> None:
     assert exit_code == 0
     assert "Only run after the director has manually reviewed the spec" in captured.out
     assert "Do not implement code or edit product files" in captured.out
+    assert "`skills/README.md`" in captured.out
 
 
 def test_scaffold_repository_writes_agent_files(tmp_path: Path) -> None:
@@ -72,6 +73,12 @@ def test_agent_renderers_share_prompt_body() -> None:
         assert f"# {template.title}" in output
         assert f"Command alias: `/{template.name}`" in output
         assert template.body.strip() in output
+
+
+def test_all_templates_reference_repo_local_skills() -> None:
+    for template in TEMPLATES.values():
+        assert "`skills/README.md`" in template.body
+        assert "`skills/<tool>/SKILL.md`" in template.body
 
 
 def test_repository_readme_mentions_director_review_gate() -> None:
