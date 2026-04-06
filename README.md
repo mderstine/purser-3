@@ -25,6 +25,7 @@ If you are directing work in a Purser-managed repo, the operating sequence is:
 4. Run either one builder step at a time or a full Ralph loop.
 5. Optionally intake tagged GitHub issues or issue-backed project items into
    Beads before execution begins.
+6. Optionally mirror planned and completed execution work back to GitHub.
 
 The rest of this README explains that lifecycle, the command entry points, and
 the GitHub intake path in the order a director normally encounters them.
@@ -86,7 +87,25 @@ uv sync --group dev
 uv run purser init
 ```
 
-That scaffolds these repo-local files:
+If you want `purser` available on your PATH as a reusable tool instead of only
+through `uv run`, install it as a uv tool:
+
+```bash
+uv tool install /path/to/portable-tool
+cd /path/to/existing-repo
+purser init
+```
+
+`purser init` is repo-root aware and idempotent. When run anywhere inside an
+existing Git repository, it resolves the repository root and then:
+
+- scaffolds Purser prompt files under `.purser/`, `.claude/commands/`, and `.github/prompts/`
+- creates `specs/.gitkeep` and `.purser/README.md`
+- initializes or bootstraps the local `bd` and Dolt state in `.beads/`
+- appends a Purser-owned section to `AGENTS.md` without overwriting existing instructions
+- optionally creates `.purser/github-sync.json` when GitHub intake is requested
+
+The generated scaffold includes these repo-local files:
 
 - `.purser/commands/*.md`
 - `.purser/codex/*.md`
@@ -99,6 +118,11 @@ Those are generated outputs of `purser init`. This repository keeps the source
 templates in `src/purser/` and does not check the generated prompt artifacts or
 fresh scaffolding outputs into the release package.
 
+Beads prerequisites:
+
+- `bd` must be installed and on PATH
+- `dolt` must be installed and on PATH
+
 ## Command entry points
 
 These are the main repo-local commands a director or operator needs to know:
@@ -107,6 +131,11 @@ These are the main repo-local commands a director or operator needs to know:
 uv run purser list
 uv run purser prompt purser-add-spec --agent codex
 uv run purser init --force
+purser init --github
+purser init --github --github-project-number 7
+purser synth-gh-spec issue:owner/repo#123
+purser publish-github specs/2026-04-06-demo.md
+purser sync-status
 uv run purser check
 uv run purser sync-github --dry-run
 uv run python -m purser.cli list
@@ -122,6 +151,9 @@ Available workflows:
 Operational commands:
 
 - `sync-github`: intake eligible GitHub repo issues and GitHub Project items into local Beads
+- `synth-gh-spec`: generate a local spec from an imported GitHub parent issue
+- `publish-github`: mirror planned Beads linked to a spec into GitHub child issues
+- `sync-status`: mirror local Beads execution state back to published GitHub issues and parent rollups
 
 ## GitHub intake
 
@@ -133,6 +165,18 @@ uv run purser sync-github --print-config-template > .purser/github-sync.json
 uv run purser sync-github --config .purser/github-sync.json --dry-run
 uv run purser sync-github --config .purser/github-sync.json
 ```
+
+You can also ask `purser init` to seed that config:
+
+```bash
+purser init --github
+purser init --github --github-project-owner owner --github-project-number 7
+```
+
+When `--github` is used, Purser tries to auto-discover the GitHub repository
+from `remote.origin.url`. If discovery is not possible and the session is
+interactive, it asks for the missing repo or project details. Existing
+`.purser/github-sync.json` content is preserved unless `--force` is passed.
 
 The intake path is explicit and selector-based. Purser does not import every
 open GitHub issue by default, and the current feature is an intake workflow, not
@@ -156,6 +200,32 @@ After intake, the imported work follows the same local Beads execution path as
 planned work. The sync command links GitHub source items to local Beads and can
 re-run idempotently, but it does not turn GitHub into the live execution engine.
 
+GitHub-backed planning flow:
+
+```mermaid
+flowchart TD
+    Parent[GitHub parent issue] --> Sync[purser sync-github]
+    Sync --> Synth[purser synth-gh-spec]
+    Synth --> Review[Director review of local spec]
+    Review --> Plan[purser-plan]
+    Plan --> Publish[purser publish-github]
+    Publish --> Beads[Local Beads execution]
+    Beads --> Mirror[purser sync-status]
+    Mirror --> GitHub[Child issues and parent rollup in GitHub]
+```
+
+Recommended sequence:
+
+```bash
+purser sync-github --dry-run
+purser sync-github
+purser synth-gh-spec issue:owner/repo#123
+# director reviews specs/...
+# project manager runs purser-plan and creates beads with "Spec path: specs/..."
+purser publish-github specs/2026-04-06-demo.md
+purser sync-status
+```
+
 V1 contract:
 
 - Repository issue sources use explicit label selectors.
@@ -167,6 +237,10 @@ V1 contract:
   sides exist locally.
 - Parent-child relationships are recorded explicitly in sync state for operator
   visibility rather than being forced into Beads dependency edges.
+- Published GitHub child issues are created from local Beads linked by spec path.
+- Beads remains authoritative for execution status; `purser sync-status` mirrors
+  outward to GitHub.
+- Parent issue auto-close is configurable and defaults to on.
 
 See `docs/github-sync.md` for the operator workflow and the JSON config format.
 

@@ -102,6 +102,13 @@ Generate a starter config with:
 uv run purser sync-github --print-config-template > .purser/github-sync.json
 ```
 
+Or let `purser init` seed the config from the current repository:
+
+```bash
+purser init --github
+purser init --github --github-project-owner owner --github-project-number 7
+```
+
 Example:
 
 ```json
@@ -157,6 +164,26 @@ Run the sync for real:
 uv run purser sync-github --config .purser/github-sync.json
 ```
 
+Generate a local spec from an imported GitHub parent issue:
+
+```bash
+purser synth-gh-spec issue:owner/repo#123
+```
+
+After `purser-plan` creates local Beads that include `Spec path: specs/...` in
+their descriptions, publish them outward as GitHub child issues:
+
+```bash
+purser publish-github specs/2026-04-06-demo.md
+```
+
+Mirror local Beads execution state back to the published GitHub child issues
+and roll up the parent issue when all child work is complete:
+
+```bash
+purser sync-status
+```
+
 Use a custom state path if the repository wants to isolate experiments:
 
 ```bash
@@ -176,8 +203,23 @@ The command prints:
 - how many dependency edges remain pending
 - how many hierarchy relationships were recorded
 
+`publish-github` prints:
+
+- which parent source key the spec is linked to
+- how many Beads were published as GitHub child issues
+- which bead ids were skipped because they were already published
+
+`sync-status` prints:
+
+- how many published child beads were inspected
+- the current local Beads state of each linked child
+- which parent source keys were closed during rollup
+
 ## Notes
 
 - Project support relies on `gh api graphql`.
 - Repository issue discovery uses `gh issue list`.
 - Tests should mock GitHub responses rather than requiring live network access.
+- Published child issue linking currently uses explicit parent references in the
+  child issue body plus optional shared project membership; native GitHub
+  sub-issue mutation support is not implemented yet.

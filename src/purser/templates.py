@@ -101,8 +101,11 @@ Execution procedure:
 2. Inspect the target spec(s) and any existing open beads to avoid duplication.
 3. Identify milestones or epics only if they help structure the dependency graph.
 4. Create the minimum bead set needed to reach the acceptance criteria.
-5. Update or link related beads when decomposition reveals follow-on work.
-6. Summarize the resulting graph, including critical path and any blockers.
+5. For specs synthesized from GitHub, include
+   `Spec path: <repo-relative path>` in each bead description so
+   `purser publish-github` can mirror the plan outward.
+6. Update or link related beads when decomposition reveals follow-on work.
+7. Summarize the resulting graph, including critical path and any blockers.
 
 Beads CLI guidance:
 - Use `bd create` for new work items.

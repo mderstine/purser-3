@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .templates import TEMPLATES, PromptTemplate
@@ -8,6 +9,8 @@ CANONICAL_DIR = Path(".purser") / "commands"
 CLAUDE_DIR = Path(".claude") / "commands"
 COPILOT_DIR = Path(".github") / "prompts"
 SPECS_DIR = Path("specs")
+PURSER_AGENTS_BEGIN = "<!-- BEGIN PURSER SECTION -->"
+PURSER_AGENTS_END = "<!-- END PURSER SECTION -->"
 
 
 def render_canonical(template: PromptTemplate) -> str:
@@ -93,6 +96,57 @@ def scaffold_repository(target: Path, force: bool = False) -> list[Path]:
     return written
 
 
+def purser_agents_section() -> str:
+    return f"""{PURSER_AGENTS_BEGIN}
+## Purser Workflow
+
+Purser manages repo-local workflow prompts and operator guidance:
+
+- Run `purser list` to see the available workflow prompts.
+- Use `purser-add-spec` to create or refine a spec in `specs/`, then stop for
+  director review.
+- Only run `purser-plan` after the director explicitly approves the spec for
+  planning.
+- Use `purser-build` for one actionable bead, or `purser-build-all` for a
+  sequential Ralph loop.
+- Review `.purser/README.md` for the generated prompt locations and the expected
+  workflow.
+- If `.purser/github-sync.json` exists, start with
+  `purser sync-github --dry-run` before importing GitHub work into Beads.
+{PURSER_AGENTS_END}
+"""
+
+
+def append_section(content: str, section: str) -> str:
+    stripped = content.rstrip()
+    if not stripped:
+        return f"# Agent Instructions\n\n{section}"
+    return f"{stripped}\n\n{section}"
+
+
+def ensure_purser_agents_section(path: Path) -> bool:
+    section = purser_agents_section().strip()
+    if path.exists():
+        original = path.read_text(encoding="utf-8")
+    else:
+        original = ""
+
+    pattern = re.compile(
+        rf"{re.escape(PURSER_AGENTS_BEGIN)}.*?{re.escape(PURSER_AGENTS_END)}",
+        re.DOTALL,
+    )
+    if pattern.search(original):
+        updated = pattern.sub(section, original, count=1)
+    else:
+        updated = append_section(original, section)
+    if updated == original:
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{updated.rstrip()}\n", encoding="utf-8")
+    return True
+
+
 def repository_readme() -> str:
     command_list = "\n".join(f"- `/{name}`" for name in TEMPLATES)
     return f"""# Purser Agent Framework
@@ -122,6 +176,8 @@ Verification backpressure:
 
 Generated outputs:
 - `purser init` creates repo-local prompt artifacts and scaffolding files.
+- `purser init` appends a Purser-owned section to `AGENTS.md` without
+  overwriting unrelated instructions.
 - This repository keeps the source templates in `src/purser/` and does not
   check the generated prompt artifacts or fresh scaffolding outputs into the
   release package.

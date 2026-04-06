@@ -160,10 +160,37 @@ class SyncAuthority:
 
 
 @dataclass(frozen=True)
+class GitHubPublishConfig:
+    enabled: bool = False
+    repo: str | None = None
+    add_to_project: bool = False
+    project_owner: str | None = None
+    project_number: int | None = None
+    child_labels: tuple[str, ...] = ("purser", "purser-child")
+    parent_close_on_complete: bool = True
+
+
+@dataclass(frozen=True)
+class GitHubStatusMirrorConfig:
+    enabled: bool = True
+    status_field: str = "Status"
+    open_value: str = "Todo"
+    in_progress_value: str = "In Progress"
+    blocked_value: str = "Blocked"
+    closed_value: str = "Done"
+    comment_on_publish: bool = True
+    comment_on_blocked: bool = True
+    comment_on_closed: bool = True
+    comment_on_parent_closed: bool = True
+
+
+@dataclass(frozen=True)
 class GitHubSyncConfig:
     version: int
     selectors: tuple[RepoSource | ProjectSource, ...]
     authority: SyncAuthority = field(default_factory=SyncAuthority)
+    publish: GitHubPublishConfig = field(default_factory=GitHubPublishConfig)
+    mirror: GitHubStatusMirrorConfig = field(default_factory=GitHubStatusMirrorConfig)
 
 
 @dataclass(frozen=True)
@@ -198,6 +225,10 @@ class ImportedBead:
     repo: str
     issue_number: int
     url: str
+    title: str = ""
+    body: str = ""
+    source_state: str = ""
+    labels: list[str] = field(default_factory=list)
     issue_node_id: str | None = None
     project_item_ids: list[str] = field(default_factory=list)
     parent_keys: list[str] = field(default_factory=list)
@@ -219,12 +250,38 @@ class RecordedHierarchy:
 
 
 @dataclass
+class SynthesizedSpec:
+    source_key: str
+    spec_path: str
+    title: str
+    source_url: str
+    synthesized_at: str
+
+
+@dataclass
+class PublishedChildIssue:
+    bead_id: str
+    parent_source_key: str
+    spec_path: str
+    repo: str
+    issue_number: int
+    url: str
+    issue_node_id: str | None = None
+    project_item_id: str | None = None
+    last_mirrored_status: str | None = None
+    published_at: str = ""
+
+
+@dataclass
 class GitHubSyncState:
     version: int = STATE_VERSION
     imports: dict[str, ImportedBead] = field(default_factory=dict)
     pending_dependencies: list[PendingDependency] = field(default_factory=list)
     applied_dependencies: list[str] = field(default_factory=list)
     recorded_hierarchy: list[RecordedHierarchy] = field(default_factory=list)
+    synthesized_specs: dict[str, SynthesizedSpec] = field(default_factory=dict)
+    published_children: dict[str, PublishedChildIssue] = field(default_factory=dict)
+    closed_parent_source_keys: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -279,6 +336,8 @@ def load_config(path: Path) -> GitHubSyncConfig:
         raise ValueError(f"unsupported GitHub sync source kind: {kind}")
 
     authority = raw.get("authority", {})
+    publish = raw.get("publish", {})
+    mirror = raw.get("mirror", {})
     return GitHubSyncConfig(
         version=version,
         selectors=tuple(selectors),
@@ -289,6 +348,29 @@ def load_config(path: Path) -> GitHubSyncConfig:
             local_bead_fields=tuple(
                 authority.get("local_bead_fields", SyncAuthority().local_bead_fields)
             ),
+        ),
+        publish=GitHubPublishConfig(
+            enabled=bool(publish.get("enabled", False)),
+            repo=publish.get("repo"),
+            add_to_project=bool(publish.get("add_to_project", False)),
+            project_owner=publish.get("project_owner"),
+            project_number=publish.get("project_number"),
+            child_labels=tuple(
+                publish.get("child_labels", GitHubPublishConfig().child_labels)
+            ),
+            parent_close_on_complete=bool(publish.get("parent_close_on_complete", True)),
+        ),
+        mirror=GitHubStatusMirrorConfig(
+            enabled=bool(mirror.get("enabled", True)),
+            status_field=mirror.get("status_field", "Status"),
+            open_value=mirror.get("open_value", "Todo"),
+            in_progress_value=mirror.get("in_progress_value", "In Progress"),
+            blocked_value=mirror.get("blocked_value", "Blocked"),
+            closed_value=mirror.get("closed_value", "Done"),
+            comment_on_publish=bool(mirror.get("comment_on_publish", True)),
+            comment_on_blocked=bool(mirror.get("comment_on_blocked", True)),
+            comment_on_closed=bool(mirror.get("comment_on_closed", True)),
+            comment_on_parent_closed=bool(mirror.get("comment_on_parent_closed", True)),
         ),
     )
 
@@ -307,12 +389,23 @@ def load_state(path: Path) -> GitHubSyncState:
     recorded_hierarchy = [
         RecordedHierarchy(**entry) for entry in raw.get("recorded_hierarchy", [])
     ]
+    synthesized_specs = {
+        source_key: SynthesizedSpec(**entry)
+        for source_key, entry in raw.get("synthesized_specs", {}).items()
+    }
+    published_children = {
+        bead_id: PublishedChildIssue(**entry)
+        for bead_id, entry in raw.get("published_children", {}).items()
+    }
     return GitHubSyncState(
         version=int(raw.get("version", STATE_VERSION)),
         imports=imports,
         pending_dependencies=pending_dependencies,
         applied_dependencies=list(raw.get("applied_dependencies", [])),
         recorded_hierarchy=recorded_hierarchy,
+        synthesized_specs=synthesized_specs,
+        published_children=published_children,
+        closed_parent_source_keys=list(raw.get("closed_parent_source_keys", [])),
     )
 
 
@@ -326,6 +419,14 @@ def save_state(path: Path, state: GitHubSyncState) -> None:
         "pending_dependencies": [asdict(entry) for entry in state.pending_dependencies],
         "applied_dependencies": sorted(state.applied_dependencies),
         "recorded_hierarchy": [asdict(entry) for entry in state.recorded_hierarchy],
+        "synthesized_specs": {
+            source_key: asdict(spec) for source_key, spec in sorted(state.synthesized_specs.items())
+        },
+        "published_children": {
+            bead_id: asdict(issue)
+            for bead_id, issue in sorted(state.published_children.items())
+        },
+        "closed_parent_source_keys": sorted(set(state.closed_parent_source_keys)),
     }
     path.write_text(f"{json.dumps(payload, indent=2, sort_keys=True)}\n", encoding="utf-8")
 
@@ -395,15 +496,22 @@ class GitHubClient:
 
 
 class GhRunner:
-    def run_json(self, args: list[str]) -> Any:
+    def __init__(self, cwd: Path | None = None) -> None:
+        self._cwd = cwd
+
+    def run(self, args: list[str]) -> str:
         command = ["gh", *args]
         completed = subprocess.run(
             command,
+            cwd=self._cwd,
             check=True,
             text=True,
             capture_output=True,
         )
-        return json.loads(completed.stdout)
+        return completed.stdout
+
+    def run_json(self, args: list[str]) -> Any:
+        return json.loads(self.run(args))
 
 
 class SupportsBeadsRun(Protocol):
@@ -437,10 +545,14 @@ class BeadsClient:
 
 
 class BeadsRunner:
+    def __init__(self, cwd: Path | None = None) -> None:
+        self._cwd = cwd
+
     def run(self, args: list[str]) -> str:
         command = ["bd", *args]
         completed = subprocess.run(
             command,
+            cwd=self._cwd,
             check=True,
             text=True,
             capture_output=True,
@@ -657,6 +769,10 @@ def apply_sync(
                     repo=item.repo,
                     issue_number=item.issue_number,
                     url=item.url,
+                    title=item.title,
+                    body=item.body,
+                    source_state=item.state,
+                    labels=list(item.labels),
                     issue_node_id=item.issue_node_id,
                     project_item_ids=[item.project_item_id] if item.project_item_id else [],
                 )
@@ -664,6 +780,10 @@ def apply_sync(
                 imported = state.imports[item.source_key]
         else:
             skipped.append(item.source_key)
+            imported.title = item.title
+            imported.body = item.body
+            imported.source_state = item.state
+            imported.labels = list(item.labels)
             if item.project_item_id and item.project_item_id not in imported.project_item_ids:
                 imported.project_item_ids.append(item.project_item_id)
 
@@ -820,6 +940,27 @@ def default_config_template() -> str:
         "authority": {
             "github_import_fields": list(SyncAuthority().github_import_fields),
             "local_bead_fields": list(SyncAuthority().local_bead_fields),
+        },
+        "publish": {
+            "enabled": False,
+            "repo": "owner/repo",
+            "add_to_project": False,
+            "project_owner": "owner",
+            "project_number": 7,
+            "child_labels": list(GitHubPublishConfig().child_labels),
+            "parent_close_on_complete": True,
+        },
+        "mirror": {
+            "enabled": True,
+            "status_field": "Status",
+            "open_value": "Todo",
+            "in_progress_value": "In Progress",
+            "blocked_value": "Blocked",
+            "closed_value": "Done",
+            "comment_on_publish": True,
+            "comment_on_blocked": True,
+            "comment_on_closed": True,
+            "comment_on_parent_closed": True,
         },
         "sources": [
             {
